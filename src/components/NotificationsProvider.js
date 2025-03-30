@@ -15,15 +15,19 @@ export const NotificationsProvider = ({ children }) => {
   
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
-  
-  // Update unread count when notifications change
-  useEffect(() => {
-    const unread = notifications.filter(notification => !notification.read).length;
-    setUnreadCount(unread);
+  const [toast, setToast] = useState(null);
+  const [toastVisible, setToastVisible] = useState(false);
+
+  // Show toast notification
+  const showToast = useCallback((notification) => {
+    setToast(notification);
+    setToastVisible(true);
     
-    // Save to localStorage
-    localStorage.setItem('retroverse_notifications', JSON.stringify(notifications));
-  }, [notifications]);
+    // Hide toast after 5 seconds
+    setTimeout(() => {
+      setToastVisible(false);
+    }, 5000);
+  }, []);
   
   // Add a new notification wrapped in useCallback
   const addNotification = useCallback((notification) => {
@@ -34,7 +38,7 @@ export const NotificationsProvider = ({ children }) => {
       ...notification
     };
     
-    setNotifications(prev => [newNotification, ...prev].slice(0, 50)); // Keep only the 50 most recent
+    setNotifications(prev => [newNotification, ...prev].slice(0, 50));
     
     // Show notification toast
     if (newNotification.showToast !== false) {
@@ -42,8 +46,8 @@ export const NotificationsProvider = ({ children }) => {
     }
     
     return newNotification.id;
-  }, []);
-  
+  }, [showToast]);
+
   // Mark a notification as read
   const markAsRead = (id) => {
     setNotifications(prev => 
@@ -70,20 +74,15 @@ export const NotificationsProvider = ({ children }) => {
     setNotifications([]);
   };
   
-  // Toast notification management
-  const [toast, setToast] = useState(null);
-  const [toastVisible, setToastVisible] = useState(false);
-  
-  const showToast = (notification) => {
-    setToast(notification);
-    setToastVisible(true);
+  // Update unread count when notifications change
+  useEffect(() => {
+    const unread = notifications.filter(notification => !notification.read).length;
+    setUnreadCount(unread);
     
-    // Hide toast after 5 seconds
-    setTimeout(() => {
-      setToastVisible(false);
-    }, 5000);
-  };
-  
+    // Save to localStorage
+    localStorage.setItem('retroverse_notifications', JSON.stringify(notifications));
+  }, [notifications]);
+
   // Notification Toast Component
   const NotificationToast = () => {
     if (!toast) return null;
@@ -312,7 +311,7 @@ export const NotificationsProvider = ({ children }) => {
         }
       });
     }
-  }, [notifications.length, addNotification]);
+  }, [addNotification, notifications.length]);
   
   return (
     <NotificationsContext.Provider

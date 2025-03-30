@@ -15,7 +15,7 @@ const RetroTutorial = ({ onComplete }) => {
     }
   }, [hasSeenTutorial]);
 
-  // Using useMemo to prevent the tutorial steps array from being recreated on every render
+  // Using useMemo for tutorialSteps to prevent recreation
   const tutorialSteps = useMemo(() => [
     {
       title: "WELCOME TO RETROVERSE",
@@ -53,7 +53,7 @@ const RetroTutorial = ({ onComplete }) => {
       position: "center",
       highlight: null
     }
-  ], []);
+  ], []); // Empty dependency array since the steps never change
 
   const handleNextStep = () => {
     if (currentStep < tutorialSteps.length - 1) {
@@ -83,7 +83,7 @@ const RetroTutorial = ({ onComplete }) => {
     if (onComplete) onComplete();
   };
 
-  // The resetTutorial function wasn't used but may be needed later
+  // resetTutorial function might be needed in future development
   // eslint-disable-next-line no-unused-vars
   const resetTutorial = () => {
     localStorage.removeItem('retroverse_tutorial_completed');
@@ -108,6 +108,13 @@ const RetroTutorial = ({ onComplete }) => {
         elementToHighlight.classList.add('tutorial-highlight');
       }
     }
+
+    return () => {
+      // Cleanup on unmount or when step changes
+      document.querySelectorAll('.tutorial-highlight').forEach(el => {
+        el.classList.remove('tutorial-highlight');
+      });
+    };
   }, [currentStep, tutorialSteps]);
 
   if (!isVisible) return null;

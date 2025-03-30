@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 
 const SpaceInvaders = () => {
@@ -26,30 +26,311 @@ const SpaceInvaders = () => {
   const [bullets, setBullets] = useState([]);
   const [enemies, setEnemies] = useState([]);
   const [enemyBullets, setEnemyBullets] = useState([]);
+  // eslint-disable-next-line no-unused-vars
   const [level, setLevel] = useState(1);
   const [viewDimensions, setViewDimensions] = useState({ width: 500, height: 500 });
 
   const BULLET_SPEED = 15;
   const MAX_BULLETS = 4;
   const BULLET_COOLDOWN = 80;
-  const GAME_SPEED = 1000 / 75;
+  const GAME_SPEED = useMemo(() => 1000 / 75, []);
   const ENEMY_BULLET_SPEED = 3;
   const ENEMY_SPEED = 1;
   const ENEMY_DROP_DISTANCE = 20;
   const ENEMY_FIRE_RATE = 0.01;
   const SHIELD_WIDTH = 60;
   const SHIELD_HEIGHT = 20;
-  const POWER_UP_TYPES = ['rapidFire', 'shield', 'multiShot'];
+  const POWER_UP_TYPES = useMemo(() => ['rapidFire', 'shield', 'multiShot'], []);
   const POWER_UP_DURATION = 10000;
 
   const lastBulletFiredRef = useRef(0);
   const frameCountRef = useRef(0);
   const lastFrameTimeRef = useRef(0);
 
+  const checkCollision = useCallback((rect1, rect2) => {
+    return rect1.x < rect2.x + rect2.width &&
+           rect1.x + rect1.width > rect2.x &&
+           rect1.y < rect2.y + rect2.height &&
+           rect1.y + rect1.height > rect2.y;
+  }, []);
+
+  const createShields = useCallback(() => {
+    const shieldPositions = [
+      { x: viewDimensions.width * 0.2, y: viewDimensions.height - 100 },
+      { x: viewDimensions.width * 0.4, y: viewDimensions.height - 100 },
+      { x: viewDimensions.width * 0.6, y: viewDimensions.height - 100 },
+      { x: viewDimensions.width * 0.8, y: viewDimensions.height - 100 }
+    ];
+
+    setShields(shieldPositions.map(pos => ({
+      ...pos,
+      width: SHIELD_WIDTH,
+      height: SHIELD_HEIGHT,
+      health: 100
+    })));
+  }, [viewDimensions.width, viewDimensions.height, SHIELD_WIDTH, SHIELD_HEIGHT]);
+
+  const createEnemies = useCallback(() => {
+    const rows = 5;
+    const cols = 11;
+    const enemyWidth = 30;
+    const enemyHeight = 20;
+    const padding = 15;
+    const offsetTop = 50;
+
+    const newEnemies = [];
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        newEnemies.push({
+          x: col * (enemyWidth + padding) + padding,
+          y: row * (enemyHeight + padding) + offsetTop,
+          width: enemyWidth,
+          height: enemyHeight,
+          type: row,
+          health: 1
+        });
+      }
+    }
+    setEnemies(newEnemies);
+  }, []);
+
+  const resetGame = useCallback(() => {
+    setBullets([]);
+    setEnemyBullets([]);
+    setScore(0);
+    setLives(3);
+    setLevel(1);
+    setGameOver(false);
+    setPowerUps([]);
+    setPowerUpActive(null);
+    createEnemies();
+    createShields();
+  }, [createEnemies, createShields]);
+
+  const playSound = useCallback((type, volume = 1) => {
+    console.log('Playing sound:', type, 'at volume:', volume);
+  }, []);
+
+  const handleShoot = useCallback(() => {
+    if (gameStarted && !paused && !gameOver) {
+      const now = Date.now();
+      const cooldown = powerUpActive === 'rapidFire' ? BULLET_COOLDOWN / 2 : BULLET_COOLDOWN;
+      const maxBullets = powerUpActive === 'rapidFire' ? MAX_BULLETS * 2 : MAX_BULLETS;
+
+      if (now - lastBulletFiredRef.current > cooldown && bullets.length < maxBullets) {
+        lastBulletFiredRef.current = now;
+
+        if (powerUpActive === 'multiShot') {
+          setBullets(prev => [
+            ...prev,
+            {
+              x: player.x + player.width / 2 - 2,
+              y: player.y - 10,
+              width: 4,
+              height: 10,
+              angle: -0.2
+            },
+            {
+              x: player.x + player.width / 2 - 2,
+              y: player.y - 10,
+              width: 4,
+              height: 10,
+              angle: 0
+            },
+            {
+              x: player.x + player.width / 2 - 2,
+              y: player.y - 10,
+              width: 4,
+              height: 10,
+              angle: 0.2
+            }
+          ].slice(0, maxBullets));
+        } else {
+          setBullets(prev => [
+            ...prev,
+            {
+              x: player.x + player.width / 2 - 2,
+              y: player.y - 10,
+              width: 4,
+              height: 10,
+              angle: 0
+            }
+          ].slice(0, maxBullets));
+        }
+
+        playSound('shoot', 0.3);
+      }
+    }
+  }, [gameStarted, paused, gameOver, powerUpActive, bullets.length, player, BULLET_COOLDOWN, MAX_BULLETS, playSound]);
+
+  const drawGame = useCallback(() => {
+    if (!canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
+
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, viewDimensions.width, viewDimensions.height);
+
+    ctx.fillStyle = '#00FF00';
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+
+    ctx.fillStyle = '#FFFF00';
+    bullets.forEach(bullet => {
+      ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+    });
+
+    ctx.fillStyle = '#FF0000';
+    enemyBullets.forEach(bullet => {
+      ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+    });
+
+    enemies.forEach(enemy => {
+      ctx.fillStyle = enemy.type === 0 ? '#FF00FF' : 
+                     enemy.type === 1 ? '#00FFFF' : '#FFFF00';
+      ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+    });
+
+    shields.forEach(shield => {
+      const opacity = shield.health / 100;
+      ctx.fillStyle = `rgba(0, 255, 0, ${opacity})`;
+      ctx.fillRect(shield.x, shield.y, shield.width, shield.height);
+    });
+
+    powerUps.forEach(powerUp => {
+      ctx.fillStyle = '#FF00FF';
+      ctx.beginPath();
+      ctx.arc(powerUp.x, powerUp.y, 8, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '20px monospace';
+    ctx.fillText(`SCORE: ${score}`, 10, 30);
+    ctx.fillText(`HIGH SCORE: ${highScore}`, viewDimensions.width - 200, 30);
+    ctx.fillText(`LIVES: ${lives}`, 10, viewDimensions.height - 10);
+    if (powerUpActive) {
+      ctx.fillStyle = '#00FFFF';
+      ctx.fillText(`POWER UP: ${powerUpActive}`, viewDimensions.width / 2 - 70, 30);
+    }
+  }, [viewDimensions, player, bullets, enemyBullets, enemies, shields, powerUps, powerUpActive, score, highScore, lives]);
+
+  const updateGame = useCallback(() => {
+    setBullets(prev => prev.map(bullet => ({
+      ...bullet,
+      y: bullet.y - BULLET_SPEED,
+      x: bullet.x + Math.sin(bullet.angle || 0) * 2
+    })).filter(bullet => bullet.y > 0));
+
+    setEnemyBullets(prev => prev.map(bullet => ({
+      ...bullet,
+      y: bullet.y + ENEMY_BULLET_SPEED
+    })).filter(bullet => bullet.y < viewDimensions.height));
+
+    const direction = enemies.length > 0 && 
+      enemies.some(enemy => enemy.x > viewDimensions.width - 40) ? -1 :
+      enemies.some(enemy => enemy.x < 10) ? 1 : null;
+
+    if (direction !== null) {
+      setEnemies(prev => prev.map(enemy => ({
+        ...enemy,
+        y: enemy.y + ENEMY_DROP_DISTANCE
+      })));
+    } else {
+      setEnemies(prev => prev.map(enemy => ({
+        ...enemy,
+        x: enemy.x + ENEMY_SPEED
+      })));
+    }
+
+    enemies.forEach(enemy => {
+      if (Math.random() < ENEMY_FIRE_RATE) {
+        setEnemyBullets(prev => [...prev, {
+          x: enemy.x + enemy.width / 2,
+          y: enemy.y + enemy.height,
+          width: 4,
+          height: 10
+        }]);
+      }
+    });
+  }, [BULLET_SPEED, ENEMY_BULLET_SPEED, ENEMY_SPEED, ENEMY_DROP_DISTANCE, ENEMY_FIRE_RATE, enemies, viewDimensions.width, viewDimensions.height]);
+
+  const spawnPowerUp = useCallback(() => {
+    if (Math.random() < 0.001) {
+      setPowerUps(prev => [...prev, {
+        x: Math.random() * (viewDimensions.width - 20) + 10,
+        y: 0,
+        type: POWER_UP_TYPES[Math.floor(Math.random() * POWER_UP_TYPES.length)]
+      }]);
+    }
+  }, [viewDimensions.width, POWER_UP_TYPES]);
+
+  const updatePowerUps = useCallback(() => {
+    setPowerUps(prev => prev.map(powerUp => ({
+      ...powerUp,
+      y: powerUp.y + 2
+    })).filter(powerUp => powerUp.y < viewDimensions.height));
+  }, [viewDimensions.height]);
+
+  const checkPowerUpCollisions = useCallback(() => {
+    powerUps.forEach(powerUp => {
+      const playerHit = checkCollision(powerUp, player);
+      if (playerHit) {
+        setPowerUpActive(powerUp.type);
+        setPowerUps(prev => prev.filter(p => p !== powerUp));
+        
+        setTimeout(() => {
+          setPowerUpActive(null);
+        }, POWER_UP_DURATION);
+      }
+    });
+  }, [powerUps, player, POWER_UP_DURATION, checkCollision]);
+
+  useEffect(() => {
+    if (!gameStarted || gameOver || paused) return;
+
+    let animationFrameId;
+
+    const gameLoop = (timestamp) => {
+      if (lastFrameTimeRef.current === 0) {
+        lastFrameTimeRef.current = timestamp;
+      }
+
+      const deltaTime = timestamp - lastFrameTimeRef.current;
+      frameCountRef.current++;
+
+      if (deltaTime >= GAME_SPEED) {
+        updateGame();
+
+        if (frameCountRef.current % 3 === 0) {
+          spawnPowerUp();
+          updatePowerUps();
+          checkPowerUpCollisions();
+        }
+
+        lastFrameTimeRef.current = timestamp;
+      }
+
+      drawGame();
+      animationFrameId = requestAnimationFrame(gameLoop);
+    };
+
+    animationFrameId = requestAnimationFrame(gameLoop);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      frameCountRef.current = 0;
+      lastFrameTimeRef.current = 0;
+    };
+  }, [
+    gameStarted, gameOver, paused, GAME_SPEED,
+    updateGame, spawnPowerUp, updatePowerUps, checkPowerUpCollisions, drawGame
+  ]);
+
   useEffect(() => {
     if (!canvasRef.current) return;
 
     const canvas = canvasRef.current;
+    // eslint-disable-next-line no-unused-vars
     const ctx = canvas.getContext('2d', { alpha: false });
 
     const handleFullscreenChange = () => {
@@ -58,7 +339,9 @@ const SpaceInvaders = () => {
     };
 
     const handleResize = () => {
+      // eslint-disable-next-line no-unused-vars
       const containerWidth = containerRef.current.clientWidth;
+      // eslint-disable-next-line no-unused-vars
       const containerHeight = containerRef.current.clientHeight;
 
       let newWidth, newHeight;
@@ -146,7 +429,7 @@ const SpaceInvaders = () => {
         resizeObserver.current.disconnect();
       }
     };
-  }, []);
+  }, [gameStarted, gameOver, resetGame, createShields]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -185,7 +468,7 @@ const SpaceInvaders = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gameStarted, gameOver]);
+  }, [gameStarted, gameOver, resetGame]);
 
   useEffect(() => {
     if (!gameStarted || gameOver || paused) return;
@@ -210,7 +493,7 @@ const SpaceInvaders = () => {
 
     const keyInterval = setInterval(processKeys, 10);
     return () => clearInterval(keyInterval);
-  }, [keysPressed, gameStarted, gameOver, paused, player, bullets, powerUpActive]);
+  }, [keysPressed, gameStarted, gameOver, paused, player, bullets, powerUpActive, handleShoot]);
 
   const toggleFullscreen = async () => {
     try {
@@ -247,711 +530,40 @@ const SpaceInvaders = () => {
     }
   };
 
-  useEffect(() => {
+  const handleTouchMove = useCallback((e) => {
     if (!gameStarted || gameOver || paused) return;
-
-    let animationFrameId;
-
-    const gameLoop = (timestamp) => {
-      if (lastFrameTimeRef.current === 0) {
-        lastFrameTimeRef.current = timestamp;
-      }
-
-      const deltaTime = timestamp - lastFrameTimeRef.current;
-
-      frameCountRef.current++;
-
-      if (deltaTime >= GAME_SPEED) {
-        updateGame();
-
-        if (frameCountRef.current % 3 === 0) {
-          spawnPowerUp();
-          updatePowerUps();
-          checkPowerUpCollisions();
-        }
-
-        lastFrameTimeRef.current = timestamp;
-      }
-
-      drawGame();
-
-      animationFrameId = requestAnimationFrame(gameLoop);
-    };
-
-    animationFrameId = requestAnimationFrame(gameLoop);
-
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-      frameCountRef.current = 0;
-      lastFrameTimeRef.current = 0;
-    };
-  }, [gameStarted, gameOver, paused, player, bullets, enemies, enemyBullets, powerUps, powerUpActive, viewDimensions]);
-
-  const updateBullets = () => {
-    setBullets(prev => prev
-      .map(bullet => {
-        const xMove = bullet.angle ? BULLET_SPEED * Math.sin(bullet.angle) : 0;
-        return {
-          ...bullet,
-          x: bullet.x + xMove,
-          y: bullet.y - BULLET_SPEED
-        };
-      })
-      .filter(bullet => bullet.y > 0)
-    );
-  };
-
-  const createEnemies = () => {
-    const numRows = Math.min(3 + Math.floor(level / 2), 5);
-    const numCols = Math.min(6 + Math.floor(level / 3), 10);
-    const enemyWidth = 30;
-    const enemyHeight = 20;
-    const padding = 15;
-    const offsetTop = 50;
-
-    const newEnemies = [];
-
-    for (let row = 0; row < numRows; row++) {
-      for (let col = 0; col < numCols; col++) {
-        const enemyType = row <= 1 ? 'advanced' : row === 2 ? 'medium' : 'basic';
-        const points = row <= 1 ? 30 : row === 2 ? 20 : 10;
-
-        newEnemies.push({
-          x: col * (enemyWidth + padding) + padding,
-          y: row * (enemyHeight + padding) + offsetTop,
-          width: enemyWidth,
-          height: enemyHeight,
-          type: enemyType,
-          points,
-          direction: 1
-        });
-      }
-    }
-
-    setEnemies(newEnemies);
-  };
-
-  const createShields = () => {
-    const shieldCount = 4;
-    const spacing = canvasRef.current.width / (shieldCount + 1);
-
-    const newShields = [];
-    for (let i = 0; i < shieldCount; i++) {
-      newShields.push({
-        x: spacing * (i + 1) - SHIELD_WIDTH / 2,
-        y: canvasRef.current.height - 100,
-        width: SHIELD_WIDTH,
-        height: SHIELD_HEIGHT,
-        health: 3
-      });
-    }
-    setShields(newShields);
-  };
-
-  const resetGame = () => {
-    setBullets([]);
-    setEnemyBullets([]);
-    setScore(0);
-    setLives(3);
-    setLevel(1);
-    setGameOver(false);
-    setPowerUps([]);
-    setPowerUpActive(null);
-    createEnemies();
-    createShields();
-  };
-
-  const spawnPowerUp = () => {
-    if (Math.random() < 0.01 && powerUps.length < 1) {
-      const type = POWER_UP_TYPES[Math.floor(Math.random() * POWER_UP_TYPES.length)];
-      setPowerUps([{
-        x: Math.random() * (canvasRef.current.width - 20),
-        y: 50,
-        width: 20,
-        height: 20,
-        type,
-        speed: 2
-      }]);
-    }
-  };
-
-  const updatePowerUps = () => {
-    setPowerUps(prev => prev
-      .map(powerUp => ({
-        ...powerUp,
-        y: powerUp.y + powerUp.speed
-      }))
-      .filter(powerUp => powerUp.y < canvasRef.current.height)
-    );
-  };
-
-  const checkPowerUpCollisions = () => {
-    powerUps.forEach(powerUp => {
-      if (
-        powerUp.x < player.x + player.width &&
-        powerUp.x + powerUp.width > player.x &&
-        powerUp.y < player.y + player.height &&
-        powerUp.y + powerUp.height > player.y
-      ) {
-        setPowerUpActive(powerUp.type);
-        setPowerUps([]);
-        playSound('powerup', 0.4);
-
-        setTimeout(() => {
-          setPowerUpActive(null);
-        }, POWER_UP_DURATION);
-      }
-    });
-  };
-
-  const updateGame = () => {
-    updateBullets();
-    updateEnemies();
-    updateEnemyBullets();
-    checkCollisions();
-
-    if (enemies.length === 0) {
-      nextLevel();
-    }
-  };
-
-  const updateEnemies = () => {
-    let needsToDropAndReverse = false;
-
-    enemies.forEach(enemy => {
-      if (
-        (enemy.x + enemy.width + ENEMY_SPEED >= canvasRef.current.width && enemy.direction === 1) ||
-        (enemy.x - ENEMY_SPEED <= 0 && enemy.direction === -1)
-      ) {
-        needsToDropAndReverse = true;
-      }
-    });
-
-    setEnemies(prev => {
-      if (needsToDropAndReverse) {
-        return prev.map(enemy => ({
-          ...enemy,
-          y: enemy.y + ENEMY_DROP_DISTANCE,
-          direction: enemy.direction * -1
-        }));
-      } else {
-        return prev.map(enemy => ({
-          ...enemy,
-          x: enemy.x + (ENEMY_SPEED * enemy.direction)
-        }));
-      }
-    });
-
-    const enemyReachedBottom = enemies.some(enemy => 
-      enemy.y + enemy.height >= player.y
-    );
-
-    if (enemyReachedBottom) {
-      setGameOver(true);
-    }
-
-    enemies.forEach(enemy => {
-      if (Math.random() < ENEMY_FIRE_RATE) {
-        fireEnemyBullet(enemy);
-      }
-    });
-  };
-
-  const fireEnemyBullet = (enemy) => {
-    setEnemyBullets(prev => [
-      ...prev,
-      {
-        x: enemy.x + enemy.width / 2,
-        y: enemy.y + enemy.height,
-        width: 3,
-        height: 10
-      }
-    ]);
-
-    playSound('enemyShoot', 0.2);
-  };
-
-  const updateEnemyBullets = () => {
-    setEnemyBullets(prev => prev
-      .map(bullet => ({ ...bullet, y: bullet.y + ENEMY_BULLET_SPEED }))
-      .filter(bullet => bullet.y < canvasRef.current.height)
-    );
-  };
-
-  const checkCollisions = () => {
-    bullets.forEach(bullet => {
-      enemies.forEach((enemy, index) => {
-        if (
-          bullet.x < enemy.x + enemy.width &&
-          bullet.x + bullet.width > enemy.x &&
-          bullet.y < enemy.y + enemy.height &&
-          bullet.y + bullet.height > enemy.y
-        ) {
-          setScore(prev => prev + enemy.points);
-          setEnemies(prev => prev.filter((_, i) => i !== index));
-          setBullets(prev => prev.filter(b => b !== bullet));
-
-          playSound('explosion', 0.3);
-        }
-      });
-    });
-
-    enemyBullets.forEach((bullet, index) => {
-      if (
-        bullet.x < player.x + player.width &&
-        bullet.x + bullet.width > player.x &&
-        bullet.y < player.y + player.height &&
-        bullet.y + bullet.height > player.y
-      ) {
-        setLives(prev => prev - 1);
-        setEnemyBullets(prev => prev.filter((_, i) => i !== index));
-
-        playSound('playerHit', 0.4);
-
-        if (lives <= 1) {
-          endGame();
-        }
-      }
-    });
-
-    shields.forEach((shield, shieldIndex) => {
-      enemyBullets.forEach((bullet, bulletIndex) => {
-        if (
-          bullet.x < shield.x + shield.width &&
-          bullet.x + bullet.width > shield.x &&
-          bullet.y < shield.y + shield.height &&
-          bullet.y + bullet.height > shield.y
-        ) {
-          setShields(prev => {
-            const updatedShields = [...prev];
-            updatedShields[shieldIndex].health -= 1;
-            return updatedShields.filter(shield => shield.health > 0);
-          });
-          setEnemyBullets(prev => prev.filter((_, i) => i !== bulletIndex));
-        }
-      });
-    });
-  };
-
-  const nextLevel = () => {
-    setLevel(prev => prev + 1);
-    createEnemies();
-    setBullets([]);
-    setEnemyBullets([]);
-
-    playSound('levelUp', 0.5);
-  };
-
-  const endGame = () => {
-    setGameOver(true);
-
-    if (score > highScore) {
-      setHighScore(score);
-      localStorage.setItem('spaceInvadersHighScore', score.toString());
-    }
-
-    playSound('gameOver', 0.5);
-  };
-
-  const playSound = (type, volume = 0.5) => {
-    try {
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-
-      gainNode.gain.value = volume;
-
-      switch (type) {
-        case 'shoot':
-          oscillator.type = 'square';
-          oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
-          oscillator.frequency.exponentialRampToValueAtTime(880, audioContext.currentTime + 0.1);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-          oscillator.start();
-          oscillator.stop(audioContext.currentTime + 0.1);
-          break;
-
-        case 'enemyShoot':
-          oscillator.type = 'sawtooth';
-          oscillator.frequency.setValueAtTime(220, audioContext.currentTime);
-          oscillator.frequency.exponentialRampToValueAtTime(110, audioContext.currentTime + 0.1);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-          oscillator.start();
-          oscillator.stop(audioContext.currentTime + 0.1);
-          break;
-
-        case 'explosion':
-          oscillator.type = 'square';
-          oscillator.frequency.setValueAtTime(80, audioContext.currentTime);
-          oscillator.frequency.exponentialRampToValueAtTime(20, audioContext.currentTime + 0.3);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-          oscillator.start();
-          oscillator.stop(audioContext.currentTime + 0.3);
-          break;
-
-        case 'playerHit':
-          oscillator.type = 'sine';
-          oscillator.frequency.setValueAtTime(830, audioContext.currentTime);
-          oscillator.frequency.exponentialRampToValueAtTime(60, audioContext.currentTime + 0.2);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-          oscillator.start();
-          oscillator.stop(audioContext.currentTime + 0.2);
-          break;
-
-        case 'levelUp':
-          oscillator.type = 'sine';
-
-          oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
-          oscillator.frequency.setValueAtTime(554, audioContext.currentTime + 0.1);
-          oscillator.frequency.setValueAtTime(659, audioContext.currentTime + 0.2);
-          oscillator.frequency.setValueAtTime(880, audioContext.currentTime + 0.3);
-
-          gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
-
-          oscillator.start();
-          oscillator.stop(audioContext.currentTime + 0.4);
-          break;
-
-        case 'gameOver':
-          oscillator.type = 'sawtooth';
-
-          oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
-          oscillator.frequency.setValueAtTime(415, audioContext.currentTime + 0.2);
-          oscillator.frequency.setValueAtTime(392, audioContext.currentTime + 0.4);
-          oscillator.frequency.setValueAtTime(370, audioContext.currentTime + 0.6);
-          oscillator.frequency.setValueAtTime(349, audioContext.currentTime + 0.8);
-
-          gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1);
-
-          oscillator.start();
-          oscillator.stop(audioContext.currentTime + 1);
-          break;
-
-        case 'powerup':
-          oscillator.type = 'triangle';
-          oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
-          oscillator.frequency.exponentialRampToValueAtTime(880, audioContext.currentTime + 0.2);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-          oscillator.start();
-          oscillator.stop(audioContext.currentTime + 0.2);
-          break;
-
-        default:
-          break;
-      }
-    } catch (error) {
-      console.error('Audio error:', error);
-    }
-  };
-
-  const drawGame = () => {
-    if (!canvasRef.current) return;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    drawStarfield(ctx, canvas);
-
-    ctx.fillStyle = '#00FFFF';
-    ctx.fillRect(player.x, player.y, player.width, player.height);
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(player.x + player.width / 2 - 2, player.y - 10, 4, 10);
-
-    ctx.fillStyle = '#FFFF00';
-    bullets.forEach(bullet => {
-      ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-    });
-
-    enemies.forEach(enemy => {
-      drawEnemy(ctx, enemy);
-    });
-
-    ctx.fillStyle = '#FF0000';
-    enemyBullets.forEach(bullet => {
-      ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-    });
-
-    ctx.fillStyle = '#00FF00';
-    shields.forEach(shield => {
-      const opacity = shield.health * 0.3;
-      ctx.fillStyle = `rgba(0, 255, 0, ${opacity})`;
-      ctx.fillRect(shield.x, shield.y, shield.width, shield.height);
-    });
-
-    powerUps.forEach(powerUp => {
-      ctx.fillStyle = powerUp.type === 'rapidFire' ? '#FFFF00' :
-                     powerUp.type === 'shield' ? '#00FF00' : '#FF00FF';
-      ctx.fillRect(powerUp.x, powerUp.y, powerUp.width, powerUp.height);
-    });
-
-    if (powerUpActive) {
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '14px monospace';
-      ctx.textAlign = 'left';
-      ctx.fillText(`POWER-UP: ${powerUpActive.toUpperCase()}`, 10, 40);
-    }
-
-    ctx.font = '16px monospace';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'left';
-    ctx.fillText(`SCORE: ${score}`, 10, 20);
-    ctx.fillText(`LEVEL: ${level}`, canvas.width / 2 - 30, 20);
-
-    ctx.textAlign = 'right';
-    ctx.fillText(`LIVES: ${'❤️'.repeat(lives)}`, canvas.width - 10, 20);
-
-    if (gameOver) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.font = '30px monospace';
-      ctx.fillStyle = '#FF00FF';
-      ctx.textAlign = 'center';
-      ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 3);
-
-      ctx.font = '20px monospace';
-      ctx.fillStyle = '#00FFFF';
-      ctx.fillText(`FINAL SCORE: ${score}`, canvas.width / 2, canvas.height / 2 - 20);
-      ctx.fillText(`HIGH SCORE: ${highScore}`, canvas.width / 2, canvas.height / 2 + 10);
-
-      ctx.font = '16px monospace';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('PRESS SPACE TO PLAY AGAIN', canvas.width / 2, canvas.height * 2/3);
-    }
-
-    if (!gameStarted && !gameOver) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.font = '30px monospace';
-      ctx.fillStyle = '#00FFFF';
-      ctx.textAlign = 'center';
-      ctx.fillText('SPACE INVADERS', canvas.width / 2, canvas.height / 3 - 20);
-
-      drawRetroLogo(ctx, canvas.width / 2 - 40, canvas.height / 3, 80);
-
-      ctx.font = '20px monospace';
-      ctx.fillStyle = '#FFFF00';
-      ctx.fillText('PRESS SPACE TO START', canvas.width / 2, canvas.height * 2/3);
-
-      ctx.font = '16px monospace';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('ARROWS OR WASD TO MOVE', canvas.width / 2, canvas.height * 2/3 + 30);
-      ctx.fillText('SPACE TO SHOOT', canvas.width / 2, canvas.height * 2/3 + 50);
-      ctx.fillText('P TO PAUSE', canvas.width / 2, canvas.height * 2/3 + 70);
-    }
-
-    if (paused && gameStarted && !gameOver) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.font = '30px monospace';
-      ctx.fillStyle = '#00FFFF';
-      ctx.textAlign = 'center';
-      ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
-
-      ctx.font = '16px monospace';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('PRESS P TO RESUME', canvas.width / 2, canvas.height / 2 + 40);
-    }
-  };
-
-  const drawRetroLogo = (ctx, x, y, size) => {
-    const pixelSize = size / 10;
-
-    const pattern = [
-      [0, 0, 1, 0, 0, 0, 0, 1, 0, 0],
-      [0, 0, 0, 1, 0, 0, 1, 0, 0, 0],
-      [0, 0, 1, 1, 1, 1, 1, 1, 0, 0],
-      [0, 1, 1, 0, 1, 1, 0, 1, 1, 0],
-      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-      [1, 0, 1, 1, 1, 1, 1, 1, 0, 1],
-      [1, 0, 1, 0, 0, 0, 0, 1, 0, 1],
-      [0, 0, 0, 1, 1, 1, 1, 0, 0, 0]
-    ];
-
-    ctx.fillStyle = '#FF00FF';
-
-    for (let row = 0; row < pattern.length; row++) {
-      for (let col = 0; col < pattern[row].length; col++) {
-        if (pattern[row][col] === 1) {
-          ctx.fillRect(
-            x + col * pixelSize, 
-            y + row * pixelSize, 
-            pixelSize, 
-            pixelSize
-          );
-        }
-      }
-    }
-  };
-
-  const drawStarfield = (ctx, canvas) => {
-    for (let i = 0; i < 100; i++) {
-      const starX = Math.random() * canvas.width;
-      const starY = Math.random() * canvas.height;
-      const starSize = Math.random() * 2;
-      const brightness = Math.random();
-
-      ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
-      ctx.fillRect(starX, starY, starSize, starSize);
-    }
-  };
-
-  const drawEnemy = (ctx, enemy) => {
-    switch (enemy.type) {
-      case 'advanced':
-        ctx.fillStyle = '#FF00FF';
-        break;
-      case 'medium':
-        ctx.fillStyle = '#00FF00';
-        break;
-      default:
-        ctx.fillStyle = '#FF0000';
-        break;
-    }
-
-    ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-
-    ctx.fillStyle = '#000000';
-
-    if (enemy.type === 'advanced') {
-      ctx.fillRect(enemy.x + 5, enemy.y + 5, 4, 4);
-      ctx.fillRect(enemy.x + 13, enemy.y + 5, 4, 4);
-      ctx.fillRect(enemy.x + 21, enemy.y + 5, 4, 4);
-
-      ctx.fillStyle = '#FF00FF';
-      ctx.fillRect(enemy.x + enemy.width / 2 - 1, enemy.y - 4, 2, 4);
-    } else if (enemy.type === 'medium') {
-      ctx.fillRect(enemy.x + 7, enemy.y + 5, 4, 4);
-      ctx.fillRect(enemy.x + 19, enemy.y + 5, 4, 4);
-
-      ctx.fillRect(enemy.x + 2, enemy.y + 12, 6, 3);
-      ctx.fillRect(enemy.x + 22, enemy.y + 12, 6, 3);
-    } else {
-      ctx.fillRect(enemy.x + 10, enemy.y + 5, 10, 5);
-      ctx.fillRect(enemy.x + 5, enemy.y + 12, 20, 3);
-    }
-  };
-
-  const handleTouchMove = (e) => {
-    if (paused || gameOver || !gameStarted) return;
-
     const touch = e.touches[0];
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const touchX = touch.clientX - rect.left;
-
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = touch.clientX - rect.left - player.width / 2;
     setPlayer(prev => ({
       ...prev,
-      x: Math.max(0, Math.min(canvas.width - prev.width, touchX - prev.width / 2))
+      x: Math.max(0, Math.min(x, viewDimensions.width - player.width))
     }));
-  };
+  }, [gameStarted, gameOver, paused, player.width, viewDimensions.width]);
 
-  const handleTouchStart = (e) => {
+  const handleTouchStart = useCallback((e) => {
     if (!gameStarted) {
       setGameStarted(true);
-      if (gameOver) {
-        resetGame();
-      }
-      return;
-    }
-
-    if (paused) {
-      setPaused(false);
-      return;
-    }
-
-    if (gameOver) {
+    } else if (gameOver) {
       resetGame();
-      setGameStarted(true);
-      return;
+    } else if (paused) {
+      setPaused(false);
+    } else {
+      handleShoot();
     }
+  }, [gameStarted, gameOver, paused, handleShoot, resetGame]);
 
-    handleShoot();
-  };
-
-  const handleShoot = () => {
-    if (gameStarted && !paused && !gameOver) {
-      const now = Date.now();
-      const cooldown = powerUpActive === 'rapidFire' ? BULLET_COOLDOWN / 2 : BULLET_COOLDOWN;
-      const maxBullets = powerUpActive === 'rapidFire' ? MAX_BULLETS * 2 : MAX_BULLETS;
-
-      if (now - lastBulletFiredRef.current > cooldown && bullets.length < maxBullets) {
-        lastBulletFiredRef.current = now;
-
-        if (powerUpActive === 'multiShot') {
-          setBullets(prev => [
-            ...prev,
-            {
-              x: player.x + player.width / 2 - 2,
-              y: player.y - 10,
-              width: 4,
-              height: 10,
-              angle: -0.2
-            },
-            {
-              x: player.x + player.width / 2 - 2,
-              y: player.y - 10,
-              width: 4,
-              height: 10,
-              angle: 0
-            },
-            {
-              x: player.x + player.width / 2 - 2,
-              y: player.y - 10,
-              width: 4,
-              height: 10,
-              angle: 0.2
-            }
-          ].slice(0, maxBullets));
-        } else {
-          setBullets(prev => [
-            ...prev,
-            {
-              x: player.x + player.width / 2 - 2,
-              y: player.y - 10,
-              width: 4,
-              height: 10,
-              angle: 0
-            }
-          ].slice(0, maxBullets));
-        }
-
-        playSound('shoot', 0.3);
-      }
-    }
-  };
-
-  const handleCanvasClick = () => {
+  const handleCanvasClick = useCallback(() => {
     if (!gameStarted) {
       setGameStarted(true);
-      if (gameOver) {
-        resetGame();
-      }
-      return;
-    }
-
-    if (paused) {
-      setPaused(false);
-      return;
-    }
-
-    if (gameOver) {
+    } else if (gameOver) {
       resetGame();
-      setGameStarted(true);
-      return;
+    } else if (paused) {
+      setPaused(false);
+    } else {
+      handleShoot();
     }
-  };
+  }, [gameStarted, gameOver, paused, handleShoot, resetGame]);
 
   return (
     <div 

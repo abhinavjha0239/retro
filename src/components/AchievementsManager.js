@@ -11,32 +11,6 @@ const AchievementsManager = () => {
 
   // Check for any newly unlocked achievements
   useEffect(() => {
-    // Simulate unlocking a random achievement for demo purposes
-    // In a real app, this would be triggered by actual user actions
-    const unlockRandomAchievement = () => {
-      const lockedAchievements = achievements.filter(a => !a.unlocked);
-      if (lockedAchievements.length > 0) {
-        const randomIndex = Math.floor(Math.random() * lockedAchievements.length);
-        const achievementToUnlock = lockedAchievements[randomIndex];
-        
-        const updatedAchievements = achievements.map(a => 
-          a.id === achievementToUnlock.id ? {...a, unlocked: true, dateUnlocked: new Date().toISOString()} : a
-        );
-        
-        setAchievements(updatedAchievements);
-        setLatestAchievement(achievementToUnlock);
-        setShowPopup(true);
-        
-        // Save to localStorage
-        localStorage.setItem('retroverse_achievements', JSON.stringify(updatedAchievements));
-        
-        // Hide popup after 5 seconds
-        setTimeout(() => {
-          setShowPopup(false);
-        }, 5000);
-      }
-    };
-    
     // In a real app, this would be triggered by actual game events
     // For this demo, we'll add a button in the UI to simulate unlocking
   }, [achievements]);

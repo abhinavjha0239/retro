@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
 
 // Create a context for notifications
 const NotificationsContext = createContext();
@@ -25,8 +25,8 @@ export const NotificationsProvider = ({ children }) => {
     localStorage.setItem('retroverse_notifications', JSON.stringify(notifications));
   }, [notifications]);
   
-  // Add a new notification
-  const addNotification = (notification) => {
+  // Add a new notification wrapped in useCallback
+  const addNotification = useCallback((notification) => {
     const newNotification = {
       id: Date.now(),
       timestamp: new Date().toISOString(),
@@ -42,7 +42,7 @@ export const NotificationsProvider = ({ children }) => {
     }
     
     return newNotification.id;
-  };
+  }, []);
   
   // Mark a notification as read
   const markAsRead = (id) => {
@@ -312,7 +312,7 @@ export const NotificationsProvider = ({ children }) => {
         }
       });
     }
-  }, []);
+  }, [notifications.length, addNotification]);
   
   return (
     <NotificationsContext.Provider

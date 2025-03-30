@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 const RetroTutorial = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -15,7 +15,8 @@ const RetroTutorial = ({ onComplete }) => {
     }
   }, [hasSeenTutorial]);
 
-  const tutorialSteps = [
+  // Using useMemo to prevent the tutorial steps array from being recreated on every render
+  const tutorialSteps = useMemo(() => [
     {
       title: "WELCOME TO RETROVERSE",
       content: "Step into our retro gaming universe! This quick tour will help you discover all the awesome features.",
@@ -52,7 +53,7 @@ const RetroTutorial = ({ onComplete }) => {
       position: "center",
       highlight: null
     }
-  ];
+  ], []);
 
   const handleNextStep = () => {
     if (currentStep < tutorialSteps.length - 1) {
@@ -82,6 +83,8 @@ const RetroTutorial = ({ onComplete }) => {
     if (onComplete) onComplete();
   };
 
+  // The resetTutorial function wasn't used but may be needed later
+  // eslint-disable-next-line no-unused-vars
   const resetTutorial = () => {
     localStorage.removeItem('retroverse_tutorial_completed');
     setHasSeenTutorial(false);
@@ -105,7 +108,7 @@ const RetroTutorial = ({ onComplete }) => {
         elementToHighlight.classList.add('tutorial-highlight');
       }
     }
-  }, [currentStep]);
+  }, [currentStep, tutorialSteps]);
 
   if (!isVisible) return null;
 

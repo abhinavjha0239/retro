@@ -34,7 +34,7 @@ const AppContent = () => {
   const konamiCodeSuccess = useKonamiCode();
   const [showLoader, setShowLoader] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
-  const { ProfileModal, openProfile, toggleProfile } = useUserProfile();
+  const { ProfileModal, toggleProfile } = useUserProfile();
   const achievementsManager = AchievementsManager();
   const { AchievementPopup, unlockAchievement, AchievementsGrid } = achievementsManager;
   const [showAchievements, setShowAchievements] = useState(false);
@@ -63,7 +63,7 @@ const AppContent = () => {
         }
       }, 5000);
     }
-  }, []);
+  }, [unlockAchievement, addNotification]);
   
   useEffect(() => {
     if (konamiCodeSuccess) {
@@ -85,7 +85,7 @@ const AppContent = () => {
         }
       }, 2000);
     }
-  }, [konamiCodeSuccess]);
+  }, [konamiCodeSuccess, unlockAchievement, addNotification]);
   
   // Layout wrapper for pages that need header and footer
   const PageLayout = ({ children }) => (

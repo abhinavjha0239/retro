@@ -1,292 +1,216 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useContext, createContext } from 'react';
 
-const UserProfile = ({ onClose, isOpen }) => {
-  const [profile, setProfile] = useState(() => {
-    // Load profile from localStorage or use default values
-    const savedProfile = localStorage.getItem('retroverse_profile');
-    return savedProfile ? JSON.parse(savedProfile) : {
-      username: 'PLAYER1',
-      avatar: '👾',
-      level: 1,
-      points: 0,
-      joinDate: new Date().toISOString(),
-      gamesPlayed: 0,
-      highScores: {
-        snake: 0,
-        pong: 0,
-        tetris: 0,
-        'space-invaders': 0
-      },
-      badges: []
-    };
+// Create a context for user profile
+const UserProfileContext = createContext();
+
+// Custom hook to use the user profile
+export const useUserProfile = () => useContext(UserProfileContext);
+
+// Provider component
+export const UserProfileProvider = ({ children }) => {
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [userProfile, setUserProfile] = useState(() => {
+    // Load from localStorage if available
+    const saved = localStorage.getItem('retroverse_user_profile');
+    return saved ? JSON.parse(saved) : defaultUserProfile;
   });
-  
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({
-    username: profile.username,
-    avatar: profile.avatar
-  });
-  
-  // Available avatars for selection
-  const avatarOptions = ['👾', '🤖', '👽', '🎮', '🕹️', '👑', '🚀', '🌌', '🎲', '🎯'];
-  
-  useEffect(() => {
-    // Save profile to localStorage whenever it changes
-    localStorage.setItem('retroverse_profile', JSON.stringify(profile));
-  }, [profile]);
-  
-  const handleEditSubmit = (e) => {
-    e.preventDefault();
-    setProfile({
-      ...profile,
-      username: editForm.username || 'PLAYER1',
-      avatar: editForm.avatar
-    });
-    setIsEditing(false);
+
+  // Save profile data whenever it changes
+  const saveProfile = (newProfile) => {
+    const updatedProfile = { ...userProfile, ...newProfile };
+    setUserProfile(updatedProfile);
+    localStorage.setItem('retroverse_user_profile', JSON.stringify(updatedProfile));
   };
-  
-  const addPoints = (points) => {
-    const newPoints = profile.points + points;
-    const newLevel = Math.floor(newPoints / 1000) + 1;
+
+  // Toggle profile modal
+  const toggleProfile = () => {
+    setShowProfileModal(!showProfileModal);
+  };
+
+  // Add points to the user profile - will be used in future development
+  // eslint-disable-next-line no-unused-vars
+  const addPoints = (amount) => {
+    const newPoints = userProfile.points + amount;
+    const newLevel = Math.floor(newPoints / 1000) + 1; // Level up every 1000 points
     
-    setProfile({
-      ...profile,
+    saveProfile({
       points: newPoints,
-      level: newLevel
+      level: newLevel > userProfile.level ? newLevel : userProfile.level
     });
     
-    return {
-      newPoints,
-      newLevel,
-      levelUp: newLevel > profile.level
-    };
+    // Return true if user leveled up
+    return newLevel > userProfile.level;
   };
-  
+
+  // Update high score if the new score is higher
+  // eslint-disable-next-line no-unused-vars
   const updateHighScore = (game, score) => {
-    if (score > profile.highScores[game]) {
-      setProfile({
-        ...profile,
-        highScores: {
-          ...profile.highScores,
-          [game]: score
-        }
-      });
-      return true;
+    const currentHighScore = userProfile.highScores[game] || 0;
+    
+    if (score > currentHighScore) {
+      const newHighScores = {
+        ...userProfile.highScores,
+        [game]: score
+      };
+      
+      saveProfile({ highScores: newHighScores });
+      return true; // Score was updated
     }
-    return false;
+    
+    return false; // Score was not updated
   };
-  
+
+  // Add a badge to the user profile
+  // eslint-disable-next-line no-unused-vars
   const addBadge = (badge) => {
-    if (!profile.badges.some(b => b.id === badge.id)) {
-      setProfile({
-        ...profile,
-        badges: [...profile.badges, badge]
-      });
-      return true;
+    // Don't add if badge already exists
+    if (userProfile.badges.some(b => b.id === badge.id)) {
+      return false;
     }
-    return false;
+    
+    const newBadges = [...userProfile.badges, badge];
+    saveProfile({ badges: newBadges });
+    return true;
   };
-  
+
+  // Increment games played counter
+  // eslint-disable-next-line no-unused-vars
   const incrementGamesPlayed = () => {
-    setProfile({
-      ...profile,
-      gamesPlayed: profile.gamesPlayed + 1
-    });
+    saveProfile({ gamesPlayed: userProfile.gamesPlayed + 1 });
   };
-  
-  if (!isOpen) return null;
-  
-  // Format join date 
-  const formatJoinDate = () => {
-    const date = new Date(profile.joinDate);
-    return new Intl.DateTimeFormat('en-US', { 
-      year: 'numeric',
-      month: 'short', 
-      day: 'numeric' 
-    }).format(date);
+
+  // Profile Modal Component
+  const ProfileModal = () => {
+    if (!showProfileModal) return null;
+
+    const { username, level, points, highScores, badges, gamesPlayed } = userProfile;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center">
+        <div className="bg-gray-900 border-4 border-[#00FF00] p-6 rounded-lg w-full max-w-md">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-[#00FF00] text-2xl font-bold">PLAYER PROFILE</h2>
+            <button 
+              onClick={toggleProfile}
+              className="text-white hover:text-[#FF00FF] text-xl"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div className="mb-6 flex items-center">
+            <div className="w-20 h-20 bg-[#FF00FF] mr-4 flex items-center justify-center rounded-full">
+              <div className="text-3xl">👾</div>
+            </div>
+            <div>
+              <div className="text-white text-xl font-bold">{username}</div>
+              <div className="text-[#00FFFF]">LEVEL {level}</div>
+              <div className="text-[#FFFF00]">{points} POINTS</div>
+            </div>
+          </div>
+          
+          <div className="mb-6">
+            <div className="text-[#FF00FF] mb-2 font-bold">BADGES</div>
+            <div className="flex flex-wrap gap-2">
+              {badges.map((badge, index) => (
+                <div 
+                  key={index} 
+                  className="w-10 h-10 bg-black border-2 border-[#FF00FF] rounded-full flex items-center justify-center"
+                  title={badge.name}
+                >
+                  {badge.icon}
+                </div>
+              ))}
+              {badges.length === 0 && (
+                <div className="text-gray-500 text-sm">No badges yet. Keep playing to earn them!</div>
+              )}
+            </div>
+          </div>
+          
+          <div className="mb-6">
+            <div className="text-[#00FFFF] mb-2 font-bold">HIGH SCORES</div>
+            <div className="bg-black p-3 rounded">
+              {Object.entries(highScores).length > 0 ? (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-800">
+                      <th className="text-left text-gray-400 py-1">GAME</th>
+                      <th className="text-right text-gray-400 py-1">SCORE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(highScores).map(([game, score]) => (
+                      <tr key={game} className="border-b border-gray-900">
+                        <td className="py-2 text-white">{game}</td>
+                        <td className="py-2 text-[#FFFF00] text-right">{score}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="text-gray-500 text-sm py-2">Play games to set high scores!</div>
+              )}
+            </div>
+          </div>
+          
+          <div className="mb-6">
+            <div className="text-[#FFFF00] mb-2 font-bold">STATS</div>
+            <div className="bg-black p-3 rounded">
+              <div className="flex justify-between py-1">
+                <span className="text-white">Games Played</span>
+                <span className="text-[#00FF00]">{gamesPlayed}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-white">Win Rate</span>
+                <span className="text-[#00FF00]">68%</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-white">Time Played</span>
+                <span className="text-[#00FF00]">4h 32m</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-6 text-center">
+            <button 
+              onClick={toggleProfile}
+              className="bg-[#00FF00] text-black py-2 px-6 rounded font-bold hover:bg-opacity-90"
+            >
+              CLOSE
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Value to be provided by context
+  const contextValue = {
+    userProfile,
+    ProfileModal,
+    toggleProfile,
+    saveProfile,
+    addPoints,
+    updateHighScore,
+    addBadge,
+    incrementGamesPlayed
   };
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center overflow-y-auto">
-      <div className="bg-gray-900 border-4 border-[#00FF00] p-6 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-[#00FF00] text-2xl font-bold">YOUR PROFILE</h2>
-          <button 
-            onClick={onClose}
-            className="text-white hover:text-[#FF00FF] text-xl"
-          >
-            ✕
-          </button>
-        </div>
-        
-        {isEditing ? (
-          <form onSubmit={handleEditSubmit} className="mb-6">
-            <div className="mb-4">
-              <label className="block text-[#FFFF00] mb-2">USERNAME</label>
-              <input
-                type="text"
-                value={editForm.username}
-                onChange={(e) => setEditForm({...editForm, username: e.target.value})}
-                maxLength={15}
-                className="w-full bg-black border-2 border-[#00FFFF] text-white p-2 rounded font-mono"
-              />
-            </div>
-            
-            <div className="mb-4">
-              <label className="block text-[#FFFF00] mb-2">AVATAR</label>
-              <div className="grid grid-cols-5 gap-2">
-                {avatarOptions.map(avatar => (
-                  <button
-                    key={avatar}
-                    type="button"
-                    onClick={() => setEditForm({...editForm, avatar})}
-                    className={`text-3xl h-12 flex items-center justify-center rounded ${
-                      editForm.avatar === avatar ? 'bg-[#FF00FF] border-2 border-white' : 'bg-gray-800'
-                    }`}
-                  >
-                    {avatar}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <div className="flex space-x-3">
-              <button
-                type="submit"
-                className="bg-[#00FF00] text-black font-bold py-2 px-4 rounded"
-              >
-                SAVE
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsEditing(false)}
-                className="bg-gray-800 text-white font-bold py-2 px-4 rounded"
-              >
-                CANCEL
-              </button>
-            </div>
-          </form>
-        ) : (
-          <div className="flex flex-col md:flex-row gap-6 mb-6">
-            <div className="text-center">
-              <div className="h-32 w-32 rounded-full bg-[#FF00FF] flex items-center justify-center mx-auto">
-                <span className="text-6xl">{profile.avatar}</span>
-              </div>
-              
-              <div className="mt-3 text-center">
-                <div className="text-xl text-white font-bold">{profile.username}</div>
-                <div className="text-[#00FFFF]">Level {profile.level}</div>
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="mt-2 text-[#FFFF00] hover:underline text-sm"
-                >
-                  EDIT PROFILE
-                </button>
-              </div>
-            </div>
-            
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="border border-gray-700 p-3 rounded bg-black">
-                <div className="text-[#FFFF00] text-sm mb-1">POINTS</div>
-                <div className="text-white text-xl font-mono">{profile.points.toLocaleString()}</div>
-              </div>
-              
-              <div className="border border-gray-700 p-3 rounded bg-black">
-                <div className="text-[#FFFF00] text-sm mb-1">GAMES PLAYED</div>
-                <div className="text-white text-xl font-mono">{profile.gamesPlayed}</div>
-              </div>
-              
-              <div className="border border-gray-700 p-3 rounded bg-black">
-                <div className="text-[#FFFF00] text-sm mb-1">BADGES</div>
-                <div className="text-white text-xl font-mono">{profile.badges.length}</div>
-              </div>
-              
-              <div className="border border-gray-700 p-3 rounded bg-black">
-                <div className="text-[#FFFF00] text-sm mb-1">JOINED</div>
-                <div className="text-white text-sm font-mono">{formatJoinDate()}</div>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Progress to next level */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-1">
-            <div className="text-[#00FFFF]">LEVEL {profile.level}</div>
-            <div className="text-gray-400 text-sm">
-              {profile.points % 1000}/{1000} to level {profile.level + 1}
-            </div>
-          </div>
-          <div className="w-full bg-gray-800 h-3 rounded-full overflow-hidden">
-            <div 
-              className="bg-[#00FF00] h-full transition-all duration-500"
-              style={{ width: `${(profile.points % 1000) / 10}%` }}
-            ></div>
-          </div>
-        </div>
-        
-        {/* High Scores */}
-        <div className="mb-8">
-          <h3 className="text-[#00FFFF] text-xl mb-3">HIGH SCORES</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-black border border-gray-700 p-3 rounded">
-              <div className="text-[#00FF00] mb-1">SNAKE</div>
-              <div className="text-white font-mono">{profile.highScores.snake}</div>
-            </div>
-            <div className="bg-black border border-gray-700 p-3 rounded">
-              <div className="text-[#FFFF00] mb-1">PONG</div>
-              <div className="text-white font-mono">{profile.highScores.pong}</div>
-            </div>
-            <div className="bg-black border border-gray-700 p-3 rounded">
-              <div className="text-[#FF00FF] mb-1">TETRIS</div>
-              <div className="text-white font-mono">{profile.highScores.tetris}</div>
-            </div>
-            <div className="bg-black border border-gray-700 p-3 rounded">
-              <div className="text-[#00FFFF] mb-1">INVADERS</div>
-              <div className="text-white font-mono">{profile.highScores["space-invaders"]}</div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Recent Badges */}
-        <div>
-          <h3 className="text-[#00FFFF] text-xl mb-3">RECENT BADGES</h3>
-          {profile.badges.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {profile.badges.slice(0, 4).map(badge => (
-                <div key={badge.id} className="bg-black border border-gray-700 p-3 rounded text-center">
-                  <div className="text-3xl mb-1">{badge.icon}</div>
-                  <div className="text-white text-sm">{badge.title}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-gray-500 text-center py-4 border border-gray-800 rounded">
-              Complete achievements to earn badges!
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <UserProfileContext.Provider value={contextValue}>
+      {children}
+    </UserProfileContext.Provider>
   );
 };
 
-export const useUserProfile = () => {
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  
-  const ProfileModal = () => (
-    <UserProfile 
-      isOpen={isProfileOpen} 
-      onClose={() => setIsProfileOpen(false)} 
-    />
-  );
-  
-  return {
-    ProfileModal,
-    openProfile: () => setIsProfileOpen(true),
-    closeProfile: () => setIsProfileOpen(false),
-    toggleProfile: () => setIsProfileOpen(prev => !prev)
-  };
+// Default user profile
+const defaultUserProfile = {
+  username: "PLAYER1",
+  level: 1,
+  points: 0,
+  highScores: {},
+  badges: [],
+  gamesPlayed: 0
 };
 
-export default UserProfile;
+export default UserProfileProvider;

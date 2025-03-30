@@ -8,40 +8,16 @@ const RetroMusic = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // Sample audio URLs - in a real app, these would be actual file paths
-  const audioSamples = {
-    'chip-tunes': [
-      '/audio/overworld-theme.mp3',
-      '/audio/underwater-melody.mp3', 
-      '/audio/castle-theme.mp3',
-      '/audio/green-hill-zone.mp3',
-      '/audio/tetris-a-type.mp3'
-    ],
-    'arcade-themes': [
-      '/audio/high-score-music.mp3',
-      '/audio/level-start.mp3',
-      '/audio/game-over.mp3',
-      '/audio/bonus-round.mp3',
-      '/audio/victory-theme.mp3'
-    ],
-    'console-classics': [
-      '/audio/character-select.mp3',
-      '/audio/guile-theme.mp3',
-      '/audio/emerald-hill.mp3',
-      '/audio/corneria.mp3',
-      '/audio/moon-theme.mp3'
-    ],
-    'sound-effects': [
-      '/audio/coin-collect.mp3',
-      '/audio/power-up.mp3',
-      '/audio/extra-life.mp3',
-      '/audio/game-over-sound.mp3',
-      '/audio/enemy-defeat.mp3'
-    ]
-  };
-
   // For demo purposes, we'll use a placeholder audio
   const placeholderAudio = "https://assets.codepen.io/217233/kl__chiptune_loop.mp3";
+  
+  // eslint-disable-next-line no-unused-vars
+  const audioSamples = {
+    // This might be needed in future development
+    coinSound: "path/to/coin.mp3",
+    jumpSound: "path/to/jump.mp3",
+    powerupSound: "path/to/powerup.mp3"
+  };
 
   useEffect(() => {
     // Set up audio event listeners
@@ -97,7 +73,7 @@ const RetroMusic = () => {
     
     // If audio element exists, play the new track
     if (audioRef.current) {
-      audioRef.current.src = placeholderAudio; // In production, use: audioSamples[category][trackIndex]
+      audioRef.current.src = placeholderAudio; // In production, use actual audio files
       audioRef.current.load();
       audioRef.current.play();
     }

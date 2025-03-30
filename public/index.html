@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Join RetroRealm, the ultimate community for retro enthusiasts featuring pixel art, collectible badges, and nostalgic 80s & 90s aesthetics with modern interactive features." />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    
+    <!-- Preload Critical Resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link 
+      rel="preload" 
+      href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap"
+      as="style"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet" />
+    </noscript>
+    
+    <!-- Preload FontAwesome -->
+    <link 
+      rel="preload" 
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      as="style"
+      onload="this.onload=null;this.rel='stylesheet'"
+      crossorigin="anonymous"
+    />
+    <noscript>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" />
+    </noscript>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="keywords" content="retro gaming, pixel art, 80s, 90s, retro community, collectibles, badges" />
+    <meta property="og:title" content="RetroRealm - 80s & 90s Retro Community" />
+    <meta property="og:description" content="Join RetroRealm, the ultimate community for retro enthusiasts featuring pixel art, collectible badges, and nostalgic 80s & 90s aesthetics with modern interactive features." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://retrorealm.com" />
+    <meta property="og:image" content="%PUBLIC_URL%/og-image.jpg" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:site_name" content="RetroRealm Community" />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="RetroRealm - 80s & 90s Retro Community" />
+    <meta name="twitter:description" content="Join RetroRealm, the ultimate community for retro enthusiasts featuring pixel art, collectible badges, and nostalgic 80s & 90s aesthetics." />
+    <meta name="twitter:image" content="%PUBLIC_URL%/twitter-card.jpg" />
+
+    <title>RetroRealm - 80s & 90s Retro Community</title>
+    
+    <!-- Preload Critical App Assets -->
+    <link rel="preload" href="%PUBLIC_URL%/logo192.png" as="image" />
+    
+    <!-- Fallback font while custom fonts load -->
+    <style>
+      @font-face {
+        font-family: 'Rubik Fallback';
+        size-adjust: 97.5%;
+        src: local('Arial');
+      }
+      
+      body {
+        font-family: 'Rubik Fallback', Arial, sans-serif;
+      }
+      
+      .fonts-loaded body {
+        font-family: 'Rubik', Arial, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    
+    <!-- Font Loading Detection -->
+    <script>
+      if ('fonts' in document) {
+        Promise.all([
+          document.fonts.load('1em Rubik'),
+          document.fonts.load('bold 1em Rubik')
+        ]).then(() => {
+          document.documentElement.classList.add('fonts-loaded');
+        });
+      }
+    </script>
+  </body>
+</html>

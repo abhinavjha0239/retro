@@ -1,0 +1,30 @@
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* CRT Scan Line Animation */
+@keyframes scan {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100vh); }
+}
+
+.animate-scan {
+  animation: scan 8s linear infinite;
+}
+
+/* Konami Code Hint */
+.konami-hint {
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+
+.konami-hint:hover {
+  opacity: 1;
+}
+
+/* Smooth Scroll Behavior */
+html {
+  scroll-behavior: smooth;
+}

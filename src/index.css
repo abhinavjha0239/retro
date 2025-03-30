@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: #000;
+  color: #fff;
+  font-family: 'Courier', 'Inter', 'system-ui', 'sans-serif';
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Rubik', 'Inter', 'system-ui', 'sans-serif';
+}
+
+@keyframes scan {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100vh); }
+}
+
+.animate-scan {
+  animation: scan 8s linear infinite;
+}
